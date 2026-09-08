@@ -4,6 +4,10 @@ import healthRoutes from "./health.routes.js";
 
 import userRoutes from "../modules/users/user.routes.js";
 
+import adminRoutes from "./admin.routes.js";
+
+import productRoutes from "../modules/products/product.routes.js";
+
 const router = Router();
 
 router.use(
@@ -14,6 +18,14 @@ router.use(
 router.use(
   "/users",
   userRoutes
+);
+router.use(
+  "/admin",
+  adminRoutes
+);
+router.use(
+  "/products",
+  productRoutes
 );
 
 export default router;

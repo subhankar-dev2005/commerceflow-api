@@ -1,7 +1,7 @@
 import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 
-export function errorMiddleware(
+function errorMiddleware(
   error,
   req,
   res,
@@ -46,7 +46,8 @@ export function errorMiddleware(
       message,
 
       details:
-        isOperational && Array.isArray(error.errors)
+        isOperational &&
+        Array.isArray(error.errors)
           ? error.errors
           : []
     },
@@ -55,7 +56,9 @@ export function errorMiddleware(
       req.requestId || null
   };
 
-  if (env.NODE_ENV !== "production") {
+  if (
+    env.NODE_ENV !== "production"
+  ) {
     response.stack = error.stack;
   }
 
@@ -63,3 +66,5 @@ export function errorMiddleware(
     .status(statusCode)
     .json(response);
 }
+
+export default errorMiddleware;

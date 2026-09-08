@@ -35,6 +35,9 @@ const environmentSchema = z.object({
     ])
     .default("info"),
 
+  JWT_SECRET: z.string().min(32),
+  JWT_EXPIRES_IN: z.string().default("7d"),
+
   MONGODB_URI: z
     .string()
     .min(1, "MONGODB_URI is required")

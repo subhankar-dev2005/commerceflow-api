@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-export function requestIdMiddleware(
+function requestIdMiddleware(
   req,
   res,
   next
@@ -18,3 +18,5 @@ export function requestIdMiddleware(
 
   next();
 }
+
+export default requestIdMiddleware;

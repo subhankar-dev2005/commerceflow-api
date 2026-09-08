@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const registerUserSchema = z.object({
+const registerUserSchema = z.object({
   body: z.object({
     name: z
       .string()
@@ -38,3 +38,5 @@ export const registerUserSchema = z.object({
 
   params: z.object({})
 });
+
+export default registerUserSchema;

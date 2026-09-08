@@ -8,17 +8,12 @@ import pinoHttp from "pino-http";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 
-import {
-requestIdMiddleware
-} from "./common/middleware/request-id.middleware.js";
+import requestIdMiddleware from "./common/middleware/request-id.middleware.js";
 
-import {
-notFoundMiddleware
-} from "./common/middleware/not-found.middleware.js";
+import notFoundMiddleware
+  from "./common/middleware/not-found.middleware.js";
 
-import {
-  errorMiddleware
-} from "./common/middleware/error.middleware.js";
+import errorMiddleware from "./common/middleware/error.middleware.js";
 
 import apiRoutes from "./routes/index.js";
 

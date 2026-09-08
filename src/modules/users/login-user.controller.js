@@ -4,61 +4,70 @@ import User from "./user.model.js";
 import AppError from "../../common/errors/app-error.js";
 import generateToken from "../../utils/generate-token.js";
 
-async function registerUser(
+async function loginUser(
   req,
   res,
   next
 ) {
   try {
     const {
-      name,
       email,
       password
     } = req.body;
 
-    const existingUser =
+    const user =
       await User.findOne({
         email
-      });
+      }).select("+password");
 
-    if (existingUser) {
+    if (!user) {
       throw new AppError(
-        "Email is already registered",
-        409,
+        "Invalid email or password",
+        401,
         [],
-        "EMAIL_ALREADY_EXISTS"
+        "INVALID_CREDENTIALS"
       );
     }
 
-    const hashedPassword =
-      await bcrypt.hash(
+    const isPasswordValid =
+      await bcrypt.compare(
         password,
-        12
+        user.password
       );
 
-    const user =
-      await User.create({
-        name,
-        email,
-        password: hashedPassword
+    if (!isPasswordValid) {
+      throw new AppError(
+        "Invalid email or password",
+        401,
+        [],
+        "INVALID_CREDENTIALS"
+      );
+    }
+
+    const token =
+      generateToken({
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role
       });
 
     return res
-      .status(201)
+      .status(200)
       .json({
         success: true,
 
         message:
-          "User registered successfully",
+          "User logged in successfully",
 
         data: {
           user: {
             id: user._id,
             name: user.name,
             email: user.email,
-            role: user.role,
-            createdAt: user.createdAt
-          }
+            role: user.role
+          },
+
+          token
         },
 
         requestId:
@@ -69,4 +78,4 @@ async function registerUser(
   }
 }
 
-export default registerUser;
+export default loginUser;

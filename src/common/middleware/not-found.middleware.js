@@ -1,4 +1,4 @@
-export function notFoundMiddleware(
+function notFoundMiddleware(
   req,
   res
 ) {
@@ -7,9 +7,13 @@ export function notFoundMiddleware(
 
     error: {
       code: "ROUTE_NOT_FOUND",
-      message: `Route ${req.method} ${req.originalUrl} not found`
+      message:
+        `Route ${req.method} ${req.originalUrl} not found`
     },
 
-    requestId: req.requestId
+    requestId:
+      req.requestId || null
   });
 }
+
+export default notFoundMiddleware;
