@@ -1,51 +1,65 @@
 import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 
-import { AppError } from "../errors/app-error.js";
-
 export function errorMiddleware(
   error,
   req,
   res,
-  _next
+  next
 ) {
+  const statusCode =
+    Number.isInteger(error.statusCode)
+      ? error.statusCode
+      : 500;
+
+  const isOperational =
+    error.isOperational === true;
+
+  const message =
+    isOperational
+      ? error.message
+      : "Internal server error";
+
+  const errorCode =
+    isOperational && error.code
+      ? error.code
+      : "INTERNAL_SERVER_ERROR";
+
   logger.error(
     {
-      error,
+      err: error,
       requestId: req.requestId,
       method: req.method,
-      path: req.originalUrl
+      url: req.originalUrl,
+      statusCode,
+      errorCode
     },
-    "Request failed"
+    message
   );
 
-  if (error instanceof AppError) {
-    return res.status(
-      error.statusCode
-    ).json({
-      success: false,
-
-      error: {
-        code: error.code,
-        message: error.message
-      },
-
-      requestId: req.requestId
-    });
-  }
-
-  return res.status(500).json({
+  const response = {
     success: false,
 
     error: {
-      code: "INTERNAL_SERVER_ERROR",
+      code: errorCode,
 
-      message:
-        env.NODE_ENV === "production"
-          ? "An unexpected error occurred"
-          : error.message
+      message,
+
+      details:
+        isOperational && Array.isArray(error.errors)
+          ? error.errors
+          : []
     },
 
-    requestId: req.requestId
-  });
+    requestId:
+      req.requestId || null
+  };
+
+  if (env.NODE_ENV !== "production") {
+    response.stack = error.stack;
+  }
+
+  return res
+    .status(statusCode)
+    .json(response);
 }

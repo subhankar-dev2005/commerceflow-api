@@ -9,11 +9,11 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 
 import {
-  requestIdMiddleware
+requestIdMiddleware
 } from "./common/middleware/request-id.middleware.js";
 
 import {
-  notFoundMiddleware
+notFoundMiddleware
 } from "./common/middleware/not-found.middleware.js";
 
 import {
@@ -23,60 +23,113 @@ import {
 import apiRoutes from "./routes/index.js";
 
 export function createApp() {
-  const app = express();
+const app = express();
 
+/*
+
+* Security
+* Prevent Express from exposing framework information.
+  */
   app.disable("x-powered-by");
 
+/*
+
+* Structured HTTP logging.
+* Pino should run early so requests and responses are logged.
+  */
   app.use(
-    pinoHttp({
-      logger
-    })
+  pinoHttp({
+  logger
+  })
   );
 
+/*
+
+* Request ID.
+* Every request receives a unique ID for tracing,
+* logging, debugging, and error responses.
+  */
   app.use(
-    requestIdMiddleware
+  requestIdMiddleware
   );
 
+/*
+
+* Security headers.
+  */
   app.use(
-    helmet()
+  helmet()
   );
 
+/*
+
+* CORS configuration.
+  */
   app.use(
-    cors({
-      origin: env.CORS_ORIGIN
-    })
+  cors({
+  origin: env.CORS_ORIGIN,
+  credentials: true
+  })
   );
 
+/*
+
+* Global API rate limiting.
+*
+* Authentication routes will later receive stricter,
+* separate rate limits.
+  */
   app.use(
-    rateLimit({
-      windowMs: 15 * 60 * 1000,
+  rateLimit({
+  windowMs: 15 * 60 * 1000,
 
-      limit: 100,
+  limit: 100,
 
-      standardHeaders: "draft-7",
+  standardHeaders: "draft-7",
 
-      legacyHeaders: false
-    })
+  legacyHeaders: false
+  })
   );
 
+/*
+
+* JSON request parsing.
+*
+* The size limit protects the API from unnecessarily
+* large JSON payloads.
+  */
   app.use(
-    express.json({
-      limit: "1mb"
-    })
+  express.json({
+  limit: "1mb"
+  })
   );
 
+/*
+
+* API routes.
+  */
   app.use(
-    "/api/v1",
-    apiRoutes
+  "/api/v1",
+  apiRoutes
   );
 
+/*
+
+* Must be registered after all application routes.
+  */
   app.use(
-    notFoundMiddleware
+  notFoundMiddleware
   );
 
+/*
+
+* Global error handler.
+*
+* Must always be the final middleware.
+  */
   app.use(
-    errorMiddleware
+  errorMiddleware
   );
 
-  return app;
+return app;
 }

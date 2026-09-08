@@ -8,13 +8,9 @@ class AppError extends Error {
     super(message);
 
     this.name = "AppError";
-
     this.statusCode = statusCode;
-
     this.errors = errors;
-
     this.code = code;
-
     this.isOperational = true;
 
     Error.captureStackTrace(
