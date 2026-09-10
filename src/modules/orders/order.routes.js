@@ -1,52 +1,59 @@
+
 import { Router } from "express";
 
 import authMiddleware from "../../common/middleware/auth.middleware.js";
-
 import validate from "../../common/middleware/validate.middleware.js";
 
-import {
-createOrder
-} from "./order.controller.js";
-
+import { createOrder } from "./order.controller.js";
 import getOrders from "./get-orders.controller.js";
-
 import getOrder from "./get-order.controller.js";
-
 import updateOrderStatus from "./update-order-status.controller.js";
+import cancelOrder from "./cancel-order.controller.js";
 
 import {
-createOrderSchema,
-getOrderSchema,
-updateOrderStatusSchema
+  createOrderSchema,
+  getOrderSchema,
+  updateOrderStatusSchema,
+  cancelOrderSchema
 } from "./order.validator.js";
+
+import adminMiddleware from "../../common/middleware/admin.middleware.js";
 
 const router = Router();
 
 router.post(
-"/",
-authMiddleware,
-validate(createOrderSchema),
-createOrder
+  "/",
+  authMiddleware,
+  validate(createOrderSchema),
+  createOrder
 );
 
 router.get(
-"/",
-authMiddleware,
-getOrders
+  "/",
+  authMiddleware,
+  getOrders
 );
 
 router.get(
-"/:orderId",
-authMiddleware,
-validate(getOrderSchema),
-getOrder
+  "/:orderId",
+  authMiddleware,
+  validate(getOrderSchema),
+  getOrder
 );
 
 router.patch(
-"/:orderId/status",
-authMiddleware,
-validate(updateOrderStatusSchema),
-updateOrderStatus
+  "/:orderId/status",
+  authMiddleware,
+  adminMiddleware,
+  validate(updateOrderStatusSchema),
+  updateOrderStatus
+);
+
+router.patch(
+  "/:orderId/cancel",
+  authMiddleware,
+  validate(cancelOrderSchema),
+  cancelOrder
 );
 
 export default router;
