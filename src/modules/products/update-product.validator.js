@@ -1,52 +1,24 @@
 import { z } from "zod";
 
-const updateProductSchema = z.object({
-  body: z.object({
-    name: z
-      .string()
-      .trim()
-      .min(2)
-      .max(200)
-      .optional(),
+const productQuerySchema = z.object({
+  body: z.object({}).optional(),
 
-    description: z
-      .string()
-      .trim()
-      .min(10)
-      .max(2000)
-      .optional(),
-
-    price: z
-      .number()
-      .positive()
-      .optional(),
-
-    stock: z
+  query: z.object({
+    page: z.coerce
       .number()
       .int()
-      .min(0)
-      .optional(),
+      .min(1)
+      .default(1),
 
-    category: z
-      .string()
-      .trim()
-      .min(2)
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
       .max(100)
-      .optional(),
-
-    image: z
-      .string()
-      .trim()
-      .url()
-      .nullable()
-      .optional()
+      .default(10)
   }),
 
-  query: z.object({}),
-
-  params: z.object({
-    id: z.string()
-  })
+  params: z.object({}).optional()
 });
 
-export default updateProductSchema;
+export default productQuerySchema;

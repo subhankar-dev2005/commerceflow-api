@@ -1,95 +1,61 @@
+
 import { z } from "zod";
 
 const productQuerySchema = z.object({
-query: z.object({
-page: z
-.string()
-.optional()
-.transform((value) =>
-value ? Number(value) : 1
-)
-.pipe(
-z.number()
-.int()
-.min(1)
-),
+  body: z.object({}).optional(),
 
-limit: z
-  .string()
-  .optional()
-  .transform((value) =>
-    value ? Number(value) : 10
-  )
-  .pipe(
-    z.number()
+  query: z.object({
+    page: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(1),
+
+    limit: z.coerce
+      .number()
       .int()
       .min(1)
       .max(100)
-  ),
+      .default(10),
 
-category: z
-  .string()
-  .trim()
-  .min(1)
-  .optional(),
+    search: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
 
-search: z
-  .string()
-  .trim()
-  .min(1)
-  .optional(),
+    category: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
 
-inStock: z
-  .enum([
-    "true",
-    "false"
-  ])
-  .optional(),
+    inStock: z
+      .enum(["true", "false"])
+      .optional(),
 
-minPrice: z
-  .string()
-  .optional()
-  .transform((value) =>
-    value !== undefined
-      ? Number(value)
-      : undefined
-  )
-  .pipe(
-    z.number()
-      .positive()
+    minPrice: z.coerce
+      .number()
+      .min(0)
+      .optional(),
+
+    maxPrice: z.coerce
+      .number()
+      .min(0)
+      .optional(),
+
+    sortBy: z
+      .enum(["price", "createdAt", "name"])
+      .optional(),
+
+    sortOrder: z
+      .enum(["asc", "desc"])
       .optional()
-  ),
+  }),
 
-maxPrice: z
-  .string()
-  .optional()
-  .transform((value) =>
-    value !== undefined
-      ? Number(value)
-      : undefined
-  )
-  .pipe(
-    z.number()
-      .positive()
-      .optional()
-  ),
-
-sortBy: z
-  .enum([
-    "price",
-    "createdAt",
-    "name"
-  ])
-  .optional(),
-
-sortOrder: z
-  .enum([
-    "asc",
-    "desc"
-  ])
-  .optional()
-
-})
+  params: z.object({}).optional()
 });
 
 export default productQuerySchema;
