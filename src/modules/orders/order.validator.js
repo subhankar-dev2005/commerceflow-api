@@ -2,8 +2,17 @@
 import { z } from "zod";
 
 const createOrderSchema = z.object({
-  body: z.object({}).optional(),
+  body: z.object({
+    addressId: z
+      .string()
+      .regex(
+        /^[0-9a-fA-F]{24}$/,
+        "Invalid address ID"
+      )
+  }),
+
   query: z.object({}).optional(),
+
   params: z.object({}).optional()
 });
 
