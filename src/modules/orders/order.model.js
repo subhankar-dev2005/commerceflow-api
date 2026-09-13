@@ -103,6 +103,42 @@ const shippingAddressSchema = new mongoose.Schema(
   }
 );
 
+const paymentSchema = new mongoose.Schema(
+  {
+    provider: {
+      type: String,
+      enum: ["stripe", "razorpay"],
+      required: true
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "paid",
+        "failed",
+        "refunded"
+      ],
+      default: "pending"
+    },
+
+  transactionId: {
+  type: String,
+  trim: true,
+  default: ""
+},
+
+razorpayOrderId: {
+  type: String,
+  trim: true,
+  default: ""
+}
+  },
+  {
+    _id: false
+  }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: {
@@ -136,6 +172,11 @@ const orderSchema = new mongoose.Schema(
       min: 0
     },
 
+    payment: {
+      type: paymentSchema,
+      required: true
+    },
+
     shippingAddress: {
       type: shippingAddressSchema,
       required: true
@@ -167,4 +208,3 @@ const Order = mongoose.model(
 );
 
 export default Order;
-

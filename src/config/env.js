@@ -38,7 +38,20 @@ const environmentSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default("7d"),
 
+  RAZORPAY_KEY_ID: z
+    .string()
+    .min(1, "RAZORPAY_KEY_ID is required"),
+
+  RAZORPAY_KEY_SECRET: z
+    .string()
+    .min(1, "RAZORPAY_KEY_SECRET is required"),
+
+RAZORPAY_WEBHOOK_SECRET: z
+  .string()
+  .optional(),
+
   MONGODB_URI: z
+
     .string()
     .min(1, "MONGODB_URI is required")
 });

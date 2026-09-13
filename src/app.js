@@ -1,3 +1,4 @@
+
 import express from "express";
 
 import cors from "cors";
@@ -10,121 +11,102 @@ import { logger } from "./config/logger.js";
 
 import requestIdMiddleware from "./common/middleware/request-id.middleware.js";
 
-import notFoundMiddleware
-  from "./common/middleware/not-found.middleware.js";
-
+import notFoundMiddleware from "./common/middleware/not-found.middleware.js";
 import errorMiddleware from "./common/middleware/error.middleware.js";
 
 import apiRoutes from "./routes/index.js";
+import paymentRoutes from "./modules/payments/payment.routes.js";
 
 export function createApp() {
-const app = express();
+  const app = express();
 
-/*
-
-* Security
-* Prevent Express from exposing framework information.
-  */
+  /*
+   * Security
+   * Prevent Express from exposing framework information.
+   */
   app.disable("x-powered-by");
 
-/*
-
-* Structured HTTP logging.
-* Pino should run early so requests and responses are logged.
-  */
+  /*
+   * Structured HTTP logging.
+   * Pino should run early so requests and responses are logged.
+   */
   app.use(
-  pinoHttp({
-  logger
-  })
+    pinoHttp({
+      logger
+    })
   );
 
-/*
+  /*
+   * Request ID.
+   * Every request receives a unique ID for tracing,
+   * logging, debugging, and error responses.
+   */
+  app.use(requestIdMiddleware);
 
-* Request ID.
-* Every request receives a unique ID for tracing,
-* logging, debugging, and error responses.
-  */
+  /*
+   * Security headers.
+   */
+  app.use(helmet());
+
+  /*
+   * CORS configuration.
+   */
   app.use(
-  requestIdMiddleware
+    cors({
+      origin: env.CORS_ORIGIN,
+      credentials: true
+    })
   );
 
-/*
-
-* Security headers.
-  */
+  /*
+   * Global API rate limiting.
+   *
+   * Authentication routes will later receive stricter,
+   * separate rate limits.
+   */
   app.use(
-  helmet()
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 100,
+      standardHeaders: "draft-7",
+      legacyHeaders: false
+    })
   );
 
-/*
-
-* CORS configuration.
-  */
+  /*
+   * JSON request parsing.
+   *
+   * The size limit protects the API from unnecessarily
+   * large JSON payloads.
+   */
   app.use(
-  cors({
-  origin: env.CORS_ORIGIN,
-  credentials: true
-  })
+    express.json({
+      limit: "1mb"
+    })
   );
 
-/*
+  /*
+   * API routes.
+   */
+  app.use("/api/v1", apiRoutes);
 
-* Global API rate limiting.
-*
-* Authentication routes will later receive stricter,
-* separate rate limits.
-  */
-  app.use(
-  rateLimit({
-  windowMs: 15 * 60 * 1000,
+  /*
+   * Payment routes.
+   */
+  app.use("/api/v1/payments", paymentRoutes);
 
-  limit: 100,
+  /*
+   * Must be registered after all application routes.
+   */
+  app.use(notFoundMiddleware);
 
-  standardHeaders: "draft-7",
+  /*
+   * Global error handler.
+   *
+   * Must always be the final middleware.
+   */
+  app.use(errorMiddleware);
 
-  legacyHeaders: false
-  })
-  );
-
-/*
-
-* JSON request parsing.
-*
-* The size limit protects the API from unnecessarily
-* large JSON payloads.
-  */
-  app.use(
-  express.json({
-  limit: "1mb"
-  })
-  );
-
-/*
-
-* API routes.
-  */
-  app.use(
-  "/api/v1",
-  apiRoutes
-  );
-
-/*
-
-* Must be registered after all application routes.
-  */
-  app.use(
-  notFoundMiddleware
-  );
-
-/*
-
-* Global error handler.
-*
-* Must always be the final middleware.
-  */
-  app.use(
-  errorMiddleware
-  );
-
-return app;
+  return app;
 }
+

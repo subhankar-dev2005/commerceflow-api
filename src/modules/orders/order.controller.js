@@ -94,14 +94,19 @@ async function createOrder(req, res, next) {
       country: address.country
     };
 
-    const order = await Order.create({
-      user: req.user._id,
-      items: orderItems,
-      totalQuantity,
-      subtotal,
-      shippingAddress,
-      status: "pending"
-    });
+  const order = await Order.create({
+  user: req.user._id,
+  items: orderItems,
+  totalQuantity,
+  subtotal,
+  payment: {
+    provider: "razorpay",
+    status: "pending",
+    transactionId: ""
+  },
+  shippingAddress,
+  status: "pending"
+});
 
     for (const item of orderItems) {
       await Product.findByIdAndUpdate(
