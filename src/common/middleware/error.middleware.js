@@ -1,4 +1,3 @@
-import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 
 function errorMiddleware(
@@ -7,6 +6,30 @@ function errorMiddleware(
   res,
   next
 ) {
+  if (error?.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Request body is too large",
+        details: []
+      },
+      requestId:
+        req.requestId || null
+    });
+  }
+  if (error?.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_JSON",
+        message: "Request body contains invalid JSON",
+        details: []
+      },
+      requestId:
+        req.requestId || null
+    });
+  }
   const statusCode =
     Number.isInteger(error.statusCode)
       ? error.statusCode
@@ -55,12 +78,6 @@ function errorMiddleware(
     requestId:
       req.requestId || null
   };
-
-  if (
-    env.NODE_ENV !== "production"
-  ) {
-    response.stack = error.stack;
-  }
 
   return res
     .status(statusCode)

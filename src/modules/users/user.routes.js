@@ -33,6 +33,7 @@ import {
   deleteAddress
 } from "./address.controller.js";
 
+import authRateLimitMiddleware from "../../common/middleware/auth-rate-limit.middleware.js";
 const router = Router();
 
 router.post(
@@ -43,6 +44,7 @@ router.post(
 
 router.post(
   "/login",
+  authRateLimitMiddleware,
   validate(loginUserSchema),
   loginUser
 );
