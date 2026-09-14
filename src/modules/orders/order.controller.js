@@ -1,4 +1,3 @@
-
 import Cart from "../cart/cart.model.js";
 import Product from "../products/product.model.js";
 import Address from "../users/address.model.js";
@@ -40,7 +39,6 @@ async function createOrder(req, res, next) {
     const orderItems = [];
 
     let totalQuantity = 0;
-
     let subtotal = 0;
 
     for (const cartItem of cart.items) {
@@ -79,7 +77,6 @@ async function createOrder(req, res, next) {
       });
 
       totalQuantity += cartItem.quantity;
-
       subtotal += itemSubtotal;
     }
 
@@ -94,29 +91,45 @@ async function createOrder(req, res, next) {
       country: address.country
     };
 
-  const order = await Order.create({
-  user: req.user._id,
-  items: orderItems,
-  totalQuantity,
-  subtotal,
-  payment: {
-    provider: "razorpay",
-    status: "pending",
-    transactionId: ""
-  },
-  shippingAddress,
-  status: "pending"
-});
+    const order = await Order.create({
+      user: req.user._id,
+      items: orderItems,
+      totalQuantity,
+      subtotal,
+      payment: {
+        provider: "razorpay",
+        status: "pending",
+        transactionId: ""
+      },
+      shippingAddress,
+      status: "pending"
+    });
 
     for (const item of orderItems) {
-      await Product.findByIdAndUpdate(
-        item.product,
+      const updatedProduct = await Product.findOneAndUpdate(
+        {
+          _id: item.product,
+          isActive: true,
+          stock: { $gte: item.quantity }
+        },
         {
           $inc: {
             stock: -item.quantity
           }
+        },
+        {
+          new: true
         }
       );
+
+      if (!updatedProduct) {
+        throw new AppError(
+          `Insufficient stock for ${item.name}`,
+          400,
+          [],
+          "INSUFFICIENT_STOCK"
+        );
+      }
     }
 
     cart.items = [];
