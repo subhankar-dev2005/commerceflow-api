@@ -36,7 +36,7 @@ const environmentSchema = z.object({
     .default("info"),
 
   JWT_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().default("7d"),
+  JWT_EXPIRES_IN: z.string().default("20m"),
 
   RAZORPAY_KEY_ID: z
     .string()

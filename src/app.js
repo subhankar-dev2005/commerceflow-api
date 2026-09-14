@@ -80,10 +80,15 @@ export function createApp() {
    * large JSON payloads.
    */
   app.use(
-    express.json({
-      limit: "1mb"
-    })
-  );
+  express.json({
+    limit: "1mb",
+    verify: (req, res, buf) => {
+      if (req.originalUrl === "/api/v1/payments/webhook") {
+        req.rawBody = buf;
+      }
+    }
+  })
+);
 
   /*
    * API routes.

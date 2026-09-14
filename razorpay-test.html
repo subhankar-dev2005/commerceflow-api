@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>CommerceFlow Razorpay Test</title>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 60px auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+    }
+
+    .info {
+      margin-bottom: 15px;
+    }
+
+    code {
+      word-break: break-all;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    pre {
+      background: #f4f4f4;
+      padding: 15px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>CommerceFlow Razorpay Test</h1>
+
+  <div class="info">
+    <strong>CommerceFlow Order ID:</strong>
+    <br />
+    <code id="commerceOrderId"></code>
+  </div>
+
+  <div class="info">
+    <strong>Razorpay Order ID:</strong>
+    <br />
+    <code id="razorpayOrderId"></code>
+  </div>
+
+  <div class="info">
+    <strong>Amount:</strong>
+    ₹<span id="amount"></span>
+  </div>
+
+  <button id="payButton">
+    Pay ₹50
+  </button>
+
+  <h3>Razorpay Response</h3>
+
+  <pre id="result">Waiting for payment...</pre>
+
+  <script>
+    const commerceOrderId =
+      "6aa69c8f676c9074fe885316";
+
+    const razorpayOrderId =
+      "order_TbWo2zdHr6xgJr";
+
+    const razorpayKeyId =
+      "rzp_test_TVqCMaQwxRpn3A";
+
+    const amount = 5000;
+    const currency = "INR";
+
+    document.getElementById("commerceOrderId").textContent =
+      commerceOrderId;
+
+    document.getElementById("razorpayOrderId").textContent =
+      razorpayOrderId;
+
+    document.getElementById("amount").textContent =
+      amount / 100;
+
+    const payButton =
+      document.getElementById("payButton");
+
+    const result =
+      document.getElementById("result");
+
+    payButton.addEventListener("click", function () {
+
+      if (typeof Razorpay === "undefined") {
+        result.textContent =
+          "Razorpay Checkout failed to load.";
+
+        return;
+      }
+
+      result.textContent =
+        "Opening Razorpay Checkout...";
+
+      const options = {
+        key: razorpayKeyId,
+
+        amount: amount,
+
+        currency: currency,
+
+        name: "CommerceFlow",
+
+        description: "CommerceFlow Test Order",
+
+        order_id: razorpayOrderId,
+
+        handler: async function (response) {
+          result.textContent =
+            "Payment successful. Verifying payment with CommerceFlow...";
+
+          try {
+            const verifyResponse = await fetch(
+              "http://localhost:4000/api/v1/payments/orders/" +
+                commerceOrderId +
+                "/verify",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWEzZGVmN2U3ZGU1NWVmODgwZWVmZTEiLCJlbWFpbCI6InRlc3RjdXN0b21lckBjb21tZXJjZWZsb3cuY29tIiwicm9sZSI6ImN1c3RvbWVyIiwiaWF0IjoxNzg5MzYzNDE4LCJleHAiOjE3ODk5NjgyMTh9.dpyqrTEazl78qdVz5X0JWPesBoZix2P6mlE7yice5Yo"
+                },
+
+                body: JSON.stringify({
+                  razorpayPaymentId:
+                    response.razorpay_payment_id,
+
+                  razorpayOrderId:
+                    response.razorpay_order_id,
+
+                  razorpaySignature:
+                    response.razorpay_signature
+                })
+              }
+            );
+
+            const data =
+              await verifyResponse.json();
+
+            result.textContent =
+              JSON.stringify(data, null, 2);
+
+          } catch (error) {
+
+            result.textContent =
+              JSON.stringify(
+                {
+                  success: false,
+                  message: error.message
+                },
+                null,
+                2
+              );
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            result.textContent =
+              "Razorpay Checkout was closed.";
+          }
+        },
+
+        theme: {
+          color: "#3399cc"
+        }
+      };
+
+      try {
+
+        const razorpay =
+          new Razorpay(options);
+
+        razorpay.on(
+          "payment.failed",
+          function (response) {
+
+            result.textContent =
+              JSON.stringify(
+                response.error,
+                null,
+                2
+              );
+          }
+        );
+
+        razorpay.open();
+
+      } catch (error) {
+
+        result.textContent =
+          JSON.stringify(
+            {
+              message: error.message
+            },
+            null,
+            2
+          );
+      }
+    });
+  </script>
+
+</body>
+</html>
