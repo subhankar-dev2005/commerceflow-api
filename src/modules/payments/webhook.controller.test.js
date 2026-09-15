@@ -23,6 +23,177 @@ describe("handleRazorpayWebhook", () => {
       event: "payment.captured"
     });
   });
+    it("should return success when a webhook event was already processed", async () => {
+    const rawBody = Buffer.from(
+      JSON.stringify({
+        id: "evt_test123",
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_test123",
+              order_id: "order_test123"
+            }
+          }
+        }
+      })
+    );
+
+    const signature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_WEBHOOK_SECRET
+      )
+      .update(rawBody)
+      .digest("hex");
+
+    WebhookEvent.create.mockRejectedValueOnce({
+      code: 11000
+    });
+
+    const req = {
+      headers: {
+        "x-razorpay-signature": signature
+      },
+      rawBody,
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await handleRazorpayWebhook(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        message: "Webhook already processed"
+      })
+    );
+
+    expect(next).not.toHaveBeenCalled();
+  });
+
+    it("should mark the order payment as failed", async () => {
+    const rawBody = Buffer.from(
+      JSON.stringify({
+        id: "evt_failed123",
+        event: "payment.failed",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_failed123",
+              order_id: "order_test123"
+            }
+          }
+        }
+      })
+    );
+
+    const signature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_WEBHOOK_SECRET
+      )
+      .update(rawBody)
+      .digest("hex");
+
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "pending",
+      payment: {
+        status: "pending",
+        transactionId: "",
+        razorpayOrderId: "order_test123"
+      },
+      save: vi.fn().mockResolvedValue()
+    };
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(order);
+
+    const req = {
+      headers: {
+        "x-razorpay-signature": signature
+      },
+      rawBody,
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await handleRazorpayWebhook(req, res, next);
+
+    expect(order.payment.status).toBe("failed");
+
+    expect(order.save).toHaveBeenCalled();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    expect(next).not.toHaveBeenCalled();
+  });
+
+    it("should acknowledge an unknown webhook event", async () => {
+    const rawBody = Buffer.from(
+      JSON.stringify({
+        id: "evt_unknown123",
+        event: "some.unknown.event",
+        payload: {}
+      })
+    );
+
+    const signature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_WEBHOOK_SECRET
+      )
+      .update(rawBody)
+      .digest("hex");
+
+    const req = {
+      headers: {
+        "x-razorpay-signature": signature
+      },
+      rawBody,
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await handleRazorpayWebhook(req, res, next);
+
+    expect(WebhookEvent.create).toHaveBeenCalledWith({
+      eventId: "evt_unknown123",
+      provider: "razorpay",
+      event: "some.unknown.event"
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        message: "Webhook processed successfully"
+      })
+    );
+
+    expect(next).not.toHaveBeenCalled();
+  });
 
   it("should reject a webhook without a signature", async () => {
     const req = {

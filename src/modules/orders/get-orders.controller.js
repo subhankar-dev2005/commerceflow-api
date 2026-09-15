@@ -1,3 +1,4 @@
+
 import Order from "./order.model.js";
 
 async function getOrders(
@@ -24,29 +25,29 @@ async function getOrders(
     const skip =
       (page - 1) * limit;
 
- const filter = {
-  user: req.user._id
-};
+    const filter = {
+      user: req.user._id
+    };
 
-if (req.query.status) {
-  filter.status = req.query.status;
-}
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
 
     const totalOrders =
       await Order.countDocuments(filter);
 
-   const sortOrder =
-  req.query.sortOrder === "asc"
-    ? 1
-    : -1;
+    const sortOrder =
+      req.query.sortOrder === "asc"
+        ? 1
+        : -1;
 
-const orders =
-  await Order.find(filter)
-    .sort({
-      createdAt: sortOrder
-    })
-    .skip(skip)
-    .limit(limit);
+    const orders =
+      await Order.find(filter)
+        .sort({
+          createdAt: sortOrder
+        })
+        .skip(skip)
+        .limit(limit);
 
     const totalPages =
       Math.max(
@@ -78,7 +79,6 @@ const orders =
         requestId:
           req.requestId
       });
-
   } catch (error) {
     next(error);
   }

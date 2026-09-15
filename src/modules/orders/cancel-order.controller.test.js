@@ -182,7 +182,7 @@ describe("cancelOrder", () => {
     expect(Product.findByIdAndUpdate).not.toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
-});
+
   it("should cancel the order, restore stock, and save the order", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
@@ -269,3 +269,4 @@ describe("cancelOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
+});

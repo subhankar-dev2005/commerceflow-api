@@ -1,4 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  vi
+} from "vitest";
 
 import updateOrderStatus from "./update-order-status.controller.js";
 import Order from "./order.model.js";
@@ -81,7 +87,7 @@ describe("updateOrderStatus", () => {
     expect(order.status).toBe("pending");
     expect(res.status).not.toHaveBeenCalled();
   });
-});
+
   it("updates the order status when the transition is valid", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
@@ -131,7 +137,8 @@ describe("updateOrderStatus", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-    it("allows all valid status transitions", async () => {
+
+  it("allows all valid status transitions", async () => {
     const transitions = [
       ["pending", "processing"],
       ["pending", "cancelled"],
@@ -177,7 +184,8 @@ describe("updateOrderStatus", () => {
       vi.restoreAllMocks();
     }
   });
-    it("rejects transitions from delivered and cancelled orders", async () => {
+
+  it("rejects transitions from delivered and cancelled orders", async () => {
     const terminalStatuses = [
       "delivered",
       "cancelled"
@@ -226,3 +234,4 @@ describe("updateOrderStatus", () => {
       vi.restoreAllMocks();
     }
   });
+});
