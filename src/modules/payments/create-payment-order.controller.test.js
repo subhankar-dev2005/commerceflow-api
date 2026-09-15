@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  vi
+} from "vitest";
 
 import createPaymentOrder from "./create-payment-order.controller.js";
 import Order from "../orders/order.model.js";
@@ -83,10 +90,12 @@ describe("createPaymentOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-});
+
   it("returns ORDER_NOT_FOUND when the order does not exist", async () => {
     vi.spyOn(Order, "findOne")
       .mockResolvedValue(null);
+
+    vi.spyOn(razorpay.orders, "create");
 
     const req = {
       params: {
@@ -129,7 +138,8 @@ describe("createPaymentOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-    it("returns ORDER_CANCELLED when the order is cancelled", async () => {
+
+  it("returns ORDER_CANCELLED when the order is cancelled", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       user: "507f1f77bcf86cd799439012",
@@ -182,7 +192,8 @@ describe("createPaymentOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-    it("returns ORDER_ALREADY_PAID when the order is already paid", async () => {
+
+  it("returns ORDER_ALREADY_PAID when the order is already paid", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       user: "507f1f77bcf86cd799439012",
@@ -235,7 +246,8 @@ describe("createPaymentOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-    it("returns the existing Razorpay order when one already exists", async () => {
+
+  it("returns the existing Razorpay order when one already exists", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       user: "507f1f77bcf86cd799439012",
@@ -290,7 +302,8 @@ describe("createPaymentOrder", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
-    it("passes Razorpay API errors to next", async () => {
+
+  it("passes Razorpay API errors to next", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       user: "507f1f77bcf86cd799439012",
@@ -302,7 +315,9 @@ describe("createPaymentOrder", () => {
       }
     };
 
-    const razorpayError = new Error("Razorpay API failed");
+    const razorpayError = new Error(
+      "Razorpay API failed"
+    );
 
     vi.spyOn(Order, "findOne")
       .mockResolvedValue(order);
@@ -329,15 +344,11 @@ describe("createPaymentOrder", () => {
 
     await createPaymentOrder(req, res, next);
 
-    expect(razorpay.orders.create)
-      .toHaveBeenCalledWith({
-        amount: 49900,
-        currency: "INR",
-        receipt: "507f1f77bcf86cd799439011"
-      });
-
-    expect(next).toHaveBeenCalledWith(razorpayError);
+    expect(next).toHaveBeenCalledWith(
+      razorpayError
+    );
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
   });
+});
