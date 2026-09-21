@@ -121,22 +121,16 @@ describe("createPaymentOrder", () => {
       user: "507f1f77bcf86cd799439012"
     });
 
-    expect(res.status).toHaveBeenCalledWith(404);
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(404);
+    expect(error.code).toBe("ORDER_NOT_FOUND");
+    expect(error.message).toBe("Order not found");
+    expect(error.errors).toEqual([]);
 
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: {
-        code: "ORDER_NOT_FOUND",
-        message: "Order not found",
-        details: []
-      },
-      requestId: "test-request-id"
-    });
-
+    expect(res.status).not.toHaveBeenCalled();
     expect(razorpay.orders.create)
       .not.toHaveBeenCalled();
-
-    expect(next).not.toHaveBeenCalled();
   });
 
   it("returns ORDER_CANCELLED when the order is cancelled", async () => {
@@ -175,22 +169,16 @@ describe("createPaymentOrder", () => {
 
     await createPaymentOrder(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("ORDER_CANCELLED");
+    expect(error.message).toBe("Cannot create payment for a cancelled order");
+    expect(error.errors).toEqual([]);
 
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: {
-        code: "ORDER_CANCELLED",
-        message: "Cannot create payment for a cancelled order",
-        details: []
-      },
-      requestId: "test-request-id"
-    });
-
+    expect(res.status).not.toHaveBeenCalled();
     expect(razorpay.orders.create)
       .not.toHaveBeenCalled();
-
-    expect(next).not.toHaveBeenCalled();
   });
 
   it("returns ORDER_ALREADY_PAID when the order is already paid", async () => {
@@ -229,22 +217,16 @@ describe("createPaymentOrder", () => {
 
     await createPaymentOrder(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("ORDER_ALREADY_PAID");
+    expect(error.message).toBe("Order has already been paid");
+    expect(error.errors).toEqual([]);
 
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: {
-        code: "ORDER_ALREADY_PAID",
-        message: "Order has already been paid",
-        details: []
-      },
-      requestId: "test-request-id"
-    });
-
+    expect(res.status).not.toHaveBeenCalled();
     expect(razorpay.orders.create)
       .not.toHaveBeenCalled();
-
-    expect(next).not.toHaveBeenCalled();
   });
 
   it("returns the existing Razorpay order when one already exists", async () => {

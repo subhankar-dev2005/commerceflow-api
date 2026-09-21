@@ -10,6 +10,7 @@ import {
   verifyPaymentSchema
 } from "./payment.validator.js";
 import handleRazorpayWebhook from "./webhook.controller.js";
+import webhookRateLimitMiddleware from "../../common/middleware/webhook-rate-limit.middleware.js";
 
 const router = Router();
 
@@ -26,6 +27,10 @@ router.post(
   validate(verifyPaymentSchema),
   verifyPayment
 );
-router.post("/webhook", handleRazorpayWebhook);
+router.post(
+  "/webhook",
+  webhookRateLimitMiddleware,
+  handleRazorpayWebhook
+);
 
 export default router;

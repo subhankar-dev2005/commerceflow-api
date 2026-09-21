@@ -1,6 +1,7 @@
 import Order from "../orders/order.model.js";
 import razorpay from "./razorpay.service.js";
 import { env } from "../../config/env.js";
+import AppError from "../../common/errors/app-error.js";
 
 async function createPaymentOrder(req, res, next) {
   try {
@@ -12,39 +13,30 @@ async function createPaymentOrder(req, res, next) {
     });
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: "ORDER_NOT_FOUND",
-          message: "Order not found",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Order not found",
+        404,
+        [],
+        "ORDER_NOT_FOUND"
+      );
     }
 
     if (order.status === "cancelled") {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "ORDER_CANCELLED",
-          message: "Cannot create payment for a cancelled order",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Cannot create payment for a cancelled order",
+        400,
+        [],
+        "ORDER_CANCELLED"
+      );
     }
 
     if (order.payment.status === "paid") {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "ORDER_ALREADY_PAID",
-          message: "Order has already been paid",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Order has already been paid",
+        400,
+        [],
+        "ORDER_ALREADY_PAID"
+      );
     }
 
     if (order.payment.razorpayOrderId) {

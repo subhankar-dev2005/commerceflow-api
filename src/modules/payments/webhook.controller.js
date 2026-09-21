@@ -72,37 +72,34 @@ if (!rawBody) {
       });
     }
 
-    const event = JSON.parse(rawBody.toString("utf8"));
-    
-     const eventId = event.id;
+    let event;
+    try {
+      event = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_JSON_PAYLOAD",
+          message: "Invalid JSON payload in webhook body",
+          details: []
+        },
+        requestId: req.requestId
+      });
+    }
 
-if (!eventId) {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "MISSING_WEBHOOK_EVENT_ID",
-      message: "Webhook event ID is required",
-      details: []
-    },
-    requestId: req.requestId
-  });
-}
-try {
-  await WebhookEvent.create({
-    eventId,
-    provider: "razorpay",
-    event: event.event
-  });
-} catch (error) {
-  if (error?.code === 11000) {
-    return res.status(200).json({
-      success: true,
-      message: "Webhook already processed"
-    });
-  }
+    const eventId = event?.id;
 
-  throw error;
-}
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "MISSING_WEBHOOK_EVENT_ID",
+          message: "Webhook event ID is required",
+          details: []
+        },
+        requestId: req.requestId
+      });
+    }
 
     switch (event.event) {
       case "payment.captured": {
@@ -132,9 +129,52 @@ try {
         });
 
         if (!order) {
+          try {
+            await WebhookEvent.create({
+              eventId,
+              provider: "razorpay",
+              event: event.event
+            });
+          } catch (error) {
+            if (error?.code === 11000) {
+              return res.status(200).json({
+                success: true,
+                message: "Webhook already processed"
+              });
+            }
+            throw error;
+          }
+
           return res.status(200).json({
             success: true,
             message: "Webhook received"
+          });
+        }
+
+        if (order.status === "cancelled") {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: "ORDER_CANCELLED",
+              message: "Cannot process payment for a cancelled order",
+              details: []
+            },
+            requestId: req.requestId
+          });
+        }
+
+        if (
+          paymentEntity.amount !== Math.round(order.subtotal * 100) ||
+          paymentEntity.currency !== "INR"
+        ) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: "PAYMENT_AMOUNT_MISMATCH",
+              message: "Payment amount or currency does not match the order",
+              details: []
+            },
+            requestId: req.requestId
           });
         }
 
@@ -175,6 +215,23 @@ try {
 
       default:
         break;
+    }
+
+    try {
+      await WebhookEvent.create({
+        eventId,
+        provider: "razorpay",
+        event: event.event
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(200).json({
+          success: true,
+          message: "Webhook already processed"
+        });
+      }
+
+      throw error;
     }
 
     return res.status(200).json({

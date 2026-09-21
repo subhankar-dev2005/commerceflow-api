@@ -43,18 +43,13 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "ORDER_NOT_FOUND"
-        })
-      })
-    );
-
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(404);
+    expect(error.code).toBe("ORDER_NOT_FOUND");
+    expect(error.message).toBe("Order not found");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should return success when payment is already verified", async () => {
@@ -105,7 +100,7 @@ describe("verifyPayment", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("should reject an invalid Razorpay signature", async () => {
+  it("should reject an invalid different-length signature with INVALID_PAYMENT_SIGNATURE", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       status: "pending",
@@ -143,18 +138,107 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("INVALID_PAYMENT_SIGNATURE");
+    expect(error.message).toBe("Payment signature verification failed");
+    expect(error.errors).toEqual([]);
+    expect(JSON.stringify(error)).not.toContain("invalid_signature");
+    expect(res.status).not.toHaveBeenCalled();
+  });
 
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "INVALID_PAYMENT_SIGNATURE"
-        })
-      })
-    );
+  it("should reject an invalid same-length signature", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "pending",
+      subtotal: 50,
+      payment: {
+        status: "pending",
+        razorpayOrderId: "order_test123",
+        transactionId: ""
+      }
+    };
 
-    expect(next).not.toHaveBeenCalled();
+    vi.spyOn(Order, "findOne").mockResolvedValue(order);
+
+    const req = {
+      params: {
+        orderId: order._id
+      },
+      body: {
+        razorpayPaymentId: "pay_test123",
+        razorpayOrderId: "order_test123",
+        razorpaySignature: "a".repeat(64)
+      },
+      user: {
+        _id: "507f1f77bcf86cd799439012"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await verifyPayment(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("INVALID_PAYMENT_SIGNATURE");
+    expect(error.message).toBe("Payment signature verification failed");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("should reject a missing signature with INVALID_PAYMENT_SIGNATURE", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "pending",
+      subtotal: 50,
+      payment: {
+        status: "pending",
+        razorpayOrderId: "order_test123",
+        transactionId: ""
+      }
+    };
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(order);
+
+    const req = {
+      params: {
+        orderId: order._id
+      },
+      body: {
+        razorpayPaymentId: "pay_test123",
+        razorpayOrderId: "order_test123"
+      },
+      user: {
+        _id: "507f1f77bcf86cd799439012"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await verifyPayment(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("INVALID_PAYMENT_SIGNATURE");
+    expect(error.message).toBe("Payment signature verification failed");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should reject a mismatched Razorpay order ID", async () => {
@@ -195,18 +279,13 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "INVALID_RAZORPAY_ORDER"
-        })
-      })
-    );
-
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("INVALID_RAZORPAY_ORDER");
+    expect(error.message).toBe("Razorpay order does not match this order");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should reject a payment with an incorrect amount", async () => {
@@ -265,18 +344,15 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "PAYMENT_AMOUNT_MISMATCH"
-        })
-      })
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("PAYMENT_AMOUNT_MISMATCH");
+    expect(error.message).toBe(
+      "Payment amount or currency does not match the order"
     );
-
-    expect(next).not.toHaveBeenCalled();
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should reject a payment belonging to a different Razorpay order", async () => {
@@ -335,21 +411,18 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "PAYMENT_ORDER_MISMATCH"
-        })
-      })
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("PAYMENT_ORDER_MISMATCH");
+    expect(error.message).toBe(
+      "Payment does not belong to this Razorpay order"
     );
-
-    expect(next).not.toHaveBeenCalled();
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("verifies a payment successfully", async () => {
+  it("accepts a valid signature and verifies payment successfully", async () => {
   const order = {
     _id: "507f1f77bcf86cd799439011",
     user: "user123",
@@ -489,18 +562,13 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: expect.objectContaining({
-          code: "PAYMENT_NOT_CAPTURED"
-        })
-      })
-    );
-
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("PAYMENT_NOT_CAPTURED");
+    expect(error.message).toBe("Payment has not been captured");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should reject payment verification for a cancelled order", async () => {
@@ -541,18 +609,12 @@ describe("verifyPayment", () => {
 
     await verifyPayment(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: {
-        code: "ORDER_CANCELLED",
-        message: "Cannot verify payment for a cancelled order",
-        details: []
-      },
-      requestId: "test-request-id"
-    });
-
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    const error = next.mock.calls[0][0];
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe("ORDER_CANCELLED");
+    expect(error.message).toBe("Cannot verify payment for a cancelled order");
+    expect(error.errors).toEqual([]);
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
