@@ -1,3 +1,5 @@
+import AppError from "../errors/app-error.js";
+
 function authorize(...allowedRoles) {
   return function (
     req,
@@ -5,19 +7,14 @@ function authorize(...allowedRoles) {
     next
   ) {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-
-        error: {
-          code: "AUTH_REQUIRED",
-
-          message:
-            "Authentication is required"
-        },
-
-        requestId:
-          req.requestId
-      });
+      return next(
+        new AppError(
+          "Authentication is required",
+          401,
+          [],
+          "AUTH_REQUIRED"
+        )
+      );
     }
 
     if (
@@ -25,19 +22,14 @@ function authorize(...allowedRoles) {
         req.user.role
       )
     ) {
-      return res.status(403).json({
-        success: false,
-
-        error: {
-          code: "FORBIDDEN",
-
-          message:
-            "You do not have permission to access this resource"
-        },
-
-        requestId:
-          req.requestId
-      });
+      return next(
+        new AppError(
+          "You do not have permission to access this resource",
+          403,
+          [],
+          "FORBIDDEN"
+        )
+      );
     }
 
     next();

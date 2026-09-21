@@ -30,23 +30,47 @@ function errorMiddleware(
         req.requestId || null
     });
   }
-  const statusCode =
-    Number.isInteger(error.statusCode)
-      ? error.statusCode
-      : 500;
+  let statusCode = 500;
+  let errorCode = "INTERNAL_SERVER_ERROR";
+  let message = "Internal server error";
+  let details = [];
 
-  const isOperational =
-    error.isOperational === true;
-
-  const message =
-    isOperational
-      ? error.message
-      : "Internal server error";
-
-  const errorCode =
-    isOperational && error.code
-      ? error.code
-      : "INTERNAL_SERVER_ERROR";
+  if (error?.code === 11000) {
+    statusCode = 409;
+    errorCode = "DUPLICATE_RESOURCE";
+    message = "Resource already exists";
+    details = [];
+  } else if (error?.name === "CastError") {
+    statusCode = 400;
+    errorCode = "INVALID_ID";
+    message = "Invalid resource identifier";
+    details = [];
+  } else if (error?.name === "ValidationError") {
+    statusCode = 400;
+    errorCode = "VALIDATION_ERROR";
+    message = "Validation failed";
+    details =
+      error.errors && typeof error.errors === "object"
+        ? Object.keys(error.errors).map((key) => ({
+            field: error.errors[key]?.path || key,
+            message: error.errors[key]?.message || "Invalid value"
+          }))
+        : [];
+  } else if (error?.isOperational === true) {
+    statusCode =
+      Number.isInteger(error.statusCode)
+        ? error.statusCode
+        : 500;
+    errorCode =
+      error.code || "INTERNAL_SERVER_ERROR";
+    message = error.message;
+    details =
+      Array.isArray(error.errors)
+        ? error.errors
+        : [];
+  } else if (Number.isInteger(error?.statusCode)) {
+    statusCode = error.statusCode;
+  }
 
   logger.error(
     {
@@ -68,11 +92,7 @@ function errorMiddleware(
 
       message,
 
-      details:
-        isOperational &&
-        Array.isArray(error.errors)
-          ? error.errors
-          : []
+      details
     },
 
     requestId:

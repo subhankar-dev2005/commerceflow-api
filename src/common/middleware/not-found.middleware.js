@@ -8,7 +8,8 @@ function notFoundMiddleware(
     error: {
       code: "ROUTE_NOT_FOUND",
       message:
-        `Route ${req.method} ${req.originalUrl} not found`
+        `Route ${req.method} ${req.originalUrl} not found`,
+      details: []
     },
 
     requestId:

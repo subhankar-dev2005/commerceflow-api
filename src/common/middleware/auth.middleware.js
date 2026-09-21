@@ -49,6 +49,15 @@ async function authMiddleware(
       );
     }
 
+    if (user.isActive === false) {
+      throw new AppError(
+        "User account is deactivated",
+        401,
+        [],
+        "ACCOUNT_DEACTIVATED"
+      );
+    }
+
     req.user = user;
 
     next();
