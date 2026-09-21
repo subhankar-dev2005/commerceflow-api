@@ -17,7 +17,7 @@ import errorMiddleware from "./common/middleware/error.middleware.js";
 import apiRoutes from "./routes/index.js";
 import paymentRoutes from "./modules/payments/payment.routes.js";
 
-export function createApp() {
+export function createApp({ corsOrigin = env.CORS_ORIGIN } = {}) {
   const app = express();
 
   /*
@@ -69,9 +69,15 @@ export function createApp() {
   /*
    * CORS configuration.
    */
+  const allowedOrigins = Array.isArray(corsOrigin)
+    ? corsOrigin
+    : typeof corsOrigin === "string"
+      ? [corsOrigin]
+      : corsOrigin;
+
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: allowedOrigins,
       credentials: true
     })
   );
