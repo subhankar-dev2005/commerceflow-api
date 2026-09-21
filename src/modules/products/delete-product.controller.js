@@ -10,7 +10,11 @@ async function deleteProduct(
     const { id } = req.params;
 
     const product =
-      await Product.findByIdAndDelete(id);
+      await Product.findByIdAndUpdate(
+        id,
+        { isActive: false },
+        { new: true }
+      );
 
     if (!product) {
       throw new AppError(

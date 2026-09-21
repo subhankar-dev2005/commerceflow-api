@@ -1,5 +1,6 @@
 
 import Product from "./product.model.js";
+import escapeRegex from "../../utils/escape-regex.js";
 
 async function createProduct(
   req,
@@ -76,16 +77,19 @@ async function getProducts(
     };
 
     if (req.query.search) {
+      const sanitizedSearch =
+        escapeRegex(req.query.search);
+
       filter.$or = [
         {
           name: {
-            $regex: req.query.search,
+            $regex: sanitizedSearch,
             $options: "i"
           }
         },
         {
           description: {
-            $regex: req.query.search,
+            $regex: sanitizedSearch,
             $options: "i"
           }
         }

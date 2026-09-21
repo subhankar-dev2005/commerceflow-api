@@ -70,7 +70,9 @@ router.delete(
   "/:id",
   authMiddleware,
   authorizeRoles("admin"),
+  validate(productIdSchema),
   deleteProduct
 );
 
+export { productIdSchema };
 export default router;
