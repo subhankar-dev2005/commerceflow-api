@@ -7,7 +7,8 @@ const baseValidEnv = {
   JWT_SECRET: "12345678901234567890123456789012",
   MONGODB_URI: "mongodb://localhost:27017/test_db",
   RAZORPAY_KEY_ID: "rzp_test_key_id",
-  RAZORPAY_KEY_SECRET: "rzp_test_key_secret"
+  RAZORPAY_KEY_SECRET: "rzp_test_key_secret",
+  RAZORPAY_WEBHOOK_SECRET: "test_webhook_secret"
 };
 
 describe("CORS Configuration & Environment Validation", () => {

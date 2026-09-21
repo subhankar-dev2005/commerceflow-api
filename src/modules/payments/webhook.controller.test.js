@@ -12,6 +12,14 @@ import Order from "../orders/order.model.js";
 import WebhookEvent from "./webhook-event.model.js";
 
 import handleRazorpayWebhook from "./webhook.controller.js";
+import { env } from "../../config/env.js";
+
+const TEST_WEBHOOK_SECRET =
+  env.RAZORPAY_WEBHOOK_SECRET || "test_webhook_secret";
+
+if (!env.RAZORPAY_WEBHOOK_SECRET) {
+  env.RAZORPAY_WEBHOOK_SECRET = TEST_WEBHOOK_SECRET;
+}
 
 describe("handleRazorpayWebhook", () => {
   beforeEach(() => {
@@ -43,7 +51,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -116,7 +124,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -180,7 +188,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -248,7 +256,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -317,7 +325,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -386,7 +394,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -441,7 +449,7 @@ describe("handleRazorpayWebhook", () => {
     const rawBody = Buffer.from("{malformed:json,");
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -494,7 +502,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -553,7 +561,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -608,7 +616,7 @@ describe("handleRazorpayWebhook", () => {
     );
 
     const signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", TEST_WEBHOOK_SECRET)
       .update(rawBody)
       .digest("hex");
 
@@ -709,5 +717,43 @@ describe("handleRazorpayWebhook", () => {
       })
     );
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("should return 500 when RAZORPAY_WEBHOOK_SECRET is not configured", async () => {
+    const originalSecret = env.RAZORPAY_WEBHOOK_SECRET;
+    env.RAZORPAY_WEBHOOK_SECRET = "";
+
+    try {
+      const req = {
+        headers: {
+          "x-razorpay-signature": "dummy_signature"
+        },
+        rawBody: Buffer.from("{}"),
+        requestId: "test-request-id"
+      };
+
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn()
+      };
+
+      const next = vi.fn();
+
+      await handleRazorpayWebhook(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({
+            code: "WEBHOOK_SECRET_NOT_CONFIGURED",
+            message: "Razorpay webhook secret is not configured"
+          })
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    } finally {
+      env.RAZORPAY_WEBHOOK_SECRET = originalSecret;
+    }
   });
 });

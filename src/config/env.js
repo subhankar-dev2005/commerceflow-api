@@ -70,7 +70,26 @@ const environmentSchema = z
           message: "CORS_ORIGIN is required in production",
           path: ["CORS_ORIGIN"]
         });
-        return;
+      }
+
+      if (
+        !data.RAZORPAY_WEBHOOK_SECRET ||
+        !data.RAZORPAY_WEBHOOK_SECRET.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "RAZORPAY_WEBHOOK_SECRET is required in production",
+          path: ["RAZORPAY_WEBHOOK_SECRET"]
+        });
+      } else if (
+        data.RAZORPAY_WEBHOOK_SECRET.trim() === "your_razorpay_webhook_secret"
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "RAZORPAY_WEBHOOK_SECRET cannot be the default placeholder in production",
+          path: ["RAZORPAY_WEBHOOK_SECRET"]
+        });
       }
     }
 
@@ -83,10 +102,7 @@ const environmentSchema = z
           message: "CORS_ORIGIN cannot contain empty origin entries",
           path: ["CORS_ORIGIN"]
         });
-        return;
-      }
-
-      if (data.NODE_ENV === "production" && origins.includes("*")) {
+      } else if (data.NODE_ENV === "production" && origins.includes("*")) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Wildcard '*' is not allowed as a CORS origin in production",
@@ -105,7 +121,8 @@ const environmentSchema = z
 
     return {
       ...data,
-      CORS_ORIGIN: origins
+      CORS_ORIGIN: origins,
+      RAZORPAY_WEBHOOK_SECRET: data.RAZORPAY_WEBHOOK_SECRET?.trim()
     };
   });
 
