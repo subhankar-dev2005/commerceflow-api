@@ -10,6 +10,10 @@ import {
 import createPaymentOrder from "./create-payment-order.controller.js";
 import Order from "../orders/order.model.js";
 import razorpay from "./razorpay.service.js";
+import request from "supertest";
+import { createApp } from "../../app.js";
+import User from "../users/user.model.js";
+import generateToken from "../../utils/generate-token.js";
 
 describe("createPaymentOrder", () => {
   beforeEach(() => {
@@ -332,5 +336,134 @@ describe("createPaymentOrder", () => {
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/v1/payments/orders/:orderId (HTTP integration)", () => {
+  let app;
+  const mockUserId = "507f1f77bcf86cd799439012";
+  const validOrderId = "507f1f77bcf86cd799439011";
+  let validToken;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    app = createApp();
+    validToken = generateToken({ userId: mockUserId });
+  });
+
+  it("rejects request with 401 when Authorization header is missing", async () => {
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}`)
+      .send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("AUTH_TOKEN_REQUIRED");
+  });
+
+  it("rejects request with 401 when token is invalid", async () => {
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}`)
+      .set("Authorization", "Bearer invalid.jwt.token")
+      .send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("INVALID_AUTH_TOKEN");
+  });
+
+  it("rejects request with 400 when orderId is not a valid 24-character hex ObjectId", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    const response = await request(app)
+      .post("/api/v1/payments/orders/invalid-order-id")
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("VALIDATION_ERROR");
+    expect(response.body.error?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "params.orderId"
+        })
+      ])
+    );
+  });
+
+  it("preserves order ownership requirement and returns 404 when order does not belong to authenticated user", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(null);
+
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}`)
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({});
+
+    expect(Order.findOne).toHaveBeenCalledWith({
+      _id: validOrderId,
+      user: mockUserId
+    });
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("ORDER_NOT_FOUND");
+  });
+
+  it("reaches controller and returns 201 when authenticated request has valid orderId and user owns order", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    const mockOrder = {
+      _id: validOrderId,
+      user: mockUserId,
+      subtotal: 499,
+      status: "pending",
+      payment: {
+        status: "pending",
+        razorpayOrderId: ""
+      },
+      save: vi.fn().mockResolvedValue(true)
+    };
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(mockOrder);
+    vi.spyOn(razorpay.orders, "create").mockResolvedValue({
+      id: "order_INT123456",
+      amount: 49900,
+      currency: "INR"
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}`)
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({});
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Payment order created successfully");
+    expect(response.body.data.razorpayOrderId).toBe("order_INT123456");
+    expect(response.body.data.amount).toBe(49900);
+    expect(response.body.data.currency).toBe("INR");
+    expect(razorpay.orders.create).toHaveBeenCalledWith({
+      amount: 49900,
+      currency: "INR",
+      receipt: validOrderId
+    });
+    expect(mockOrder.save).toHaveBeenCalledTimes(1);
   });
 });

@@ -14,6 +14,11 @@ import Order from "../orders/order.model.js";
 import verifyPayment from "./verify-payment.controller.js";
 
 import razorpay from "./razorpay.service.js";
+import request from "supertest";
+import { createApp } from "../../app.js";
+import { env } from "../../config/env.js";
+import User from "../users/user.model.js";
+import generateToken from "../../utils/generate-token.js";
 
 describe("verifyPayment", () => {
   beforeEach(() => {
@@ -616,5 +621,175 @@ describe("verifyPayment", () => {
     expect(error.message).toBe("Cannot verify payment for a cancelled order");
     expect(error.errors).toEqual([]);
     expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/v1/payments/orders/:orderId/verify (HTTP integration)", () => {
+  let app;
+  const mockUserId = "507f1f77bcf86cd799439012";
+  const validOrderId = "507f1f77bcf86cd799439011";
+  let validToken;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    app = createApp();
+    validToken = generateToken({ userId: mockUserId });
+  });
+
+  it("rejects request with 401 when Authorization header is missing", async () => {
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}/verify`)
+      .send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("AUTH_TOKEN_REQUIRED");
+  });
+
+  it("rejects request with 401 when token is invalid", async () => {
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}/verify`)
+      .set("Authorization", "Bearer invalid.jwt.token")
+      .send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("INVALID_AUTH_TOKEN");
+  });
+
+  it("rejects request with 400 when orderId is not a valid 24-character hex ObjectId", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    const response = await request(app)
+      .post("/api/v1/payments/orders/invalid-order-id/verify")
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({
+        razorpayPaymentId: "pay_TEST123",
+        razorpayOrderId: "order_TEST123",
+        razorpaySignature: "sig_TEST123"
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("VALIDATION_ERROR");
+    expect(response.body.error?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "params.orderId"
+        })
+      ])
+    );
+  });
+
+  it("rejects request with 400 when request body fails validation (missing required fields)", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}/verify`)
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("VALIDATION_ERROR");
+    expect(response.body.error?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "body.razorpayPaymentId" }),
+        expect.objectContaining({ field: "body.razorpayOrderId" }),
+        expect.objectContaining({ field: "body.razorpaySignature" })
+      ])
+    );
+  });
+
+  it("preserves order ownership requirement and returns 404 when order does not belong to authenticated user", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(null);
+
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}/verify`)
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({
+        razorpayPaymentId: "pay_TEST123",
+        razorpayOrderId: "order_TEST123",
+        razorpaySignature: "sig_TEST123"
+      });
+
+    expect(Order.findOne).toHaveBeenCalledWith({
+      _id: validOrderId,
+      user: mockUserId
+    });
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error?.code).toBe("ORDER_NOT_FOUND");
+  });
+
+  it("reaches controller and processes verification successfully for authenticated owner", async () => {
+    vi.spyOn(User, "findById").mockResolvedValue({
+      _id: mockUserId,
+      email: "test@example.com",
+      role: "customer",
+      isActive: true
+    });
+
+    const mockOrder = {
+      _id: validOrderId,
+      user: mockUserId,
+      subtotal: 500,
+      status: "pending",
+      payment: {
+        status: "pending",
+        razorpayOrderId: "order_INT123"
+      },
+      save: vi.fn().mockResolvedValue(true)
+    };
+
+    vi.spyOn(Order, "findOne").mockResolvedValue(mockOrder);
+
+    const validSignature = crypto
+      .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
+      .update("order_INT123|pay_INT456")
+      .digest("hex");
+
+    vi.spyOn(razorpay.payments, "fetch").mockResolvedValue({
+      id: "pay_INT456",
+      order_id: "order_INT123",
+      amount: 50000,
+      currency: "INR",
+      status: "captured"
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/payments/orders/${validOrderId}/verify`)
+      .set("Authorization", `Bearer ${validToken}`)
+      .send({
+        razorpayPaymentId: "pay_INT456",
+        razorpayOrderId: "order_INT123",
+        razorpaySignature: validSignature
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Payment verified successfully");
+    expect(response.body.data.orderId).toBe(validOrderId);
+    expect(response.body.data.paymentStatus).toBe("paid");
+    expect(response.body.data.orderStatus).toBe("confirmed");
+    expect(response.body.data.transactionId).toBe("pay_INT456");
+    expect(mockOrder.save).toHaveBeenCalledTimes(1);
   });
 });

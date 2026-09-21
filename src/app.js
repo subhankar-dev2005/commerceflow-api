@@ -15,7 +15,6 @@ import notFoundMiddleware from "./common/middleware/not-found.middleware.js";
 import errorMiddleware from "./common/middleware/error.middleware.js";
 
 import apiRoutes from "./routes/index.js";
-import paymentRoutes from "./modules/payments/payment.routes.js";
 
 export function createApp({ corsOrigin = env.CORS_ORIGIN } = {}) {
   const app = express();
@@ -119,11 +118,6 @@ export function createApp({ corsOrigin = env.CORS_ORIGIN } = {}) {
    * API routes.
    */
   app.use("/api/v1", apiRoutes);
-
-  /*
-   * Payment routes.
-   */
-  app.use("/api/v1/payments", paymentRoutes);
 
   /*
    * Must be registered after all application routes.

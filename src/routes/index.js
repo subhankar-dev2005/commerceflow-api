@@ -12,6 +12,8 @@ import cartRoutes from "../modules/cart/cart.routes.js";
 
 import orderRoutes from "../modules/orders/order.routes.js";
 
+import paymentRoutes from "../modules/payments/payment.routes.js";
+
 const router = Router();
 
 router.use(
@@ -42,6 +44,11 @@ cartRoutes
 router.use(
 "/orders",
 orderRoutes
+);
+
+router.use(
+"/payments",
+paymentRoutes
 );
 
 export default router;
