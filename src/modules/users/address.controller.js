@@ -1,5 +1,6 @@
 
 import Address from "./address.model.js";
+import AppError from "../../common/errors/app-error.js";
 
 async function createAddress(req, res, next) {
   try {
@@ -87,15 +88,12 @@ async function updateAddress(req, res, next) {
     });
 
     if (!address) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: "ADDRESS_NOT_FOUND",
-          message: "Address not found",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Address not found",
+        404,
+        [],
+        "ADDRESS_NOT_FOUND"
+      );
     }
 
     const {
@@ -186,15 +184,12 @@ async function setDefaultAddress(req, res, next) {
     });
 
     if (!address) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: "ADDRESS_NOT_FOUND",
-          message: "Address not found",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Address not found",
+        404,
+        [],
+        "ADDRESS_NOT_FOUND"
+      );
     }
 
     await Address.updateMany(
@@ -237,15 +232,12 @@ async function deleteAddress(req, res, next) {
     });
 
     if (!address) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: "ADDRESS_NOT_FOUND",
-          message: "Address not found",
-          details: []
-        },
-        requestId: req.requestId
-      });
+      throw new AppError(
+        "Address not found",
+        404,
+        [],
+        "ADDRESS_NOT_FOUND"
+      );
     }
 
     const wasDefault = address.isDefault;
