@@ -183,7 +183,7 @@ describe("cancelOrder", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("should cancel the order, restore stock, and save the order", async () => {
+  it("should cancel the order atomically, restore stock, and return the updated order", async () => {
     const order = {
       _id: "507f1f77bcf86cd799439011",
       user: "507f1f77bcf86cd799439012",
@@ -197,11 +197,16 @@ describe("cancelOrder", () => {
           product: "507f1f77bcf86cd799439014",
           quantity: 3
         }
-      ],
-      save: vi.fn().mockResolvedValue(true)
+      ]
+    };
+
+    const updatedOrder = {
+      ...order,
+      status: "cancelled"
     };
 
     vi.spyOn(Order, "findById").mockResolvedValue(order);
+    vi.spyOn(Order, "findOneAndUpdate").mockResolvedValue(updatedOrder);
 
     Product.findByIdAndUpdate
       .mockResolvedValueOnce({
@@ -232,6 +237,23 @@ describe("cancelOrder", () => {
 
     await cancelOrder(req, res, next);
 
+    expect(Order.findOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: "507f1f77bcf86cd799439011",
+        user: "507f1f77bcf86cd799439012",
+        status: { $nin: ["delivered", "cancelled"] }
+      },
+      {
+        $set: {
+          status: "cancelled"
+        }
+      },
+      {
+        new: true
+      }
+    );
+
+    expect(Product.findByIdAndUpdate).toHaveBeenCalledTimes(2);
     expect(Product.findByIdAndUpdate).toHaveBeenNthCalledWith(
       1,
       "507f1f77bcf86cd799439013",
@@ -252,21 +274,68 @@ describe("cancelOrder", () => {
       }
     );
 
-    expect(order.status).toBe("cancelled");
-
-    expect(order.save).toHaveBeenCalledTimes(1);
-
     expect(res.status).toHaveBeenCalledWith(200);
 
     expect(res.json).toHaveBeenCalledWith({
       success: true,
       message: "Order cancelled successfully",
       data: {
-        order
+        order: updatedOrder
       },
       requestId: "test-request-id"
     });
 
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("should return ORDER_ALREADY_CANCELLED and not restore stock when a concurrent request cancels first", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      user: "507f1f77bcf86cd799439012",
+      status: "pending",
+      items: [
+        {
+          product: "507f1f77bcf86cd799439013",
+          quantity: 2
+        }
+      ]
+    };
+
+    vi.spyOn(Order, "findById").mockResolvedValue(order);
+    vi.spyOn(Order, "findOneAndUpdate").mockResolvedValue(null);
+
+    const req = {
+      params: {
+        orderId: "507f1f77bcf86cd799439011"
+      },
+      user: {
+        _id: "507f1f77bcf86cd799439012"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await cancelOrder(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+
+    const error = next.mock.calls[0][0];
+
+    expect(error.statusCode).toBe(400);
+    expect(error.code).toBe(
+      "ORDER_ALREADY_CANCELLED"
+    );
+    expect(error.message).toBe(
+      "Order is already cancelled"
+    );
+
+    expect(Product.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 });

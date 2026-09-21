@@ -8,10 +8,12 @@ import {
 
 import updateOrderStatus from "./update-order-status.controller.js";
 import Order from "./order.model.js";
+import Product from "../products/product.model.js";
 
 describe("updateOrderStatus", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(Product, "findByIdAndUpdate").mockResolvedValue(true);
   });
 
   it("returns 404 when order does not exist", async () => {
@@ -142,6 +144,8 @@ describe("updateOrderStatus", () => {
     const transitions = [
       ["pending", "processing"],
       ["pending", "cancelled"],
+      ["confirmed", "processing"],
+      ["confirmed", "cancelled"],
       ["processing", "shipped"],
       ["processing", "cancelled"],
       ["shipped", "delivered"]
@@ -151,6 +155,7 @@ describe("updateOrderStatus", () => {
       const order = {
         _id: "507f1f77bcf86cd799439011",
         status: currentStatus,
+        items: [],
         save: vi.fn().mockResolvedValue(true)
       };
 
@@ -180,6 +185,52 @@ describe("updateOrderStatus", () => {
       expect(order.save).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(next).not.toHaveBeenCalled();
+
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("rejects invalid status transitions from confirmed status", async () => {
+    const invalidStatuses = ["shipped", "delivered", "pending"];
+
+    for (const targetStatus of invalidStatuses) {
+      const order = {
+        _id: "507f1f77bcf86cd799439011",
+        status: "confirmed",
+        save: vi.fn()
+      };
+
+      vi.spyOn(Order, "findById").mockResolvedValueOnce(order);
+
+      const req = {
+        params: {
+          orderId: "507f1f77bcf86cd799439011"
+        },
+        body: {
+          status: targetStatus
+        },
+        requestId: "test-request-id"
+      };
+
+      const res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn()
+      };
+
+      const next = vi.fn();
+
+      await updateOrderStatus(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 400,
+          code: "INVALID_ORDER_STATUS_TRANSITION"
+        })
+      );
+
+      expect(order.status).toBe("confirmed");
+      expect(order.save).not.toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalled();
 
       vi.restoreAllMocks();
     }
@@ -233,5 +284,151 @@ describe("updateOrderStatus", () => {
 
       vi.restoreAllMocks();
     }
+  });
+
+  it("handles unknown or undefined order status using fallback without crashing", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "non_existent_status",
+      save: vi.fn()
+    };
+
+    vi.spyOn(Order, "findById").mockResolvedValueOnce(order);
+
+    const req = {
+      params: {
+        orderId: "507f1f77bcf86cd799439011"
+      },
+      body: {
+        status: "processing"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await updateOrderStatus(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        code: "INVALID_ORDER_STATUS_TRANSITION"
+      })
+    );
+
+    expect(order.save).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("restores stock for every order item when admin cancellation occurs", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "confirmed",
+      items: [
+        {
+          product: "507f1f77bcf86cd799439013",
+          quantity: 2
+        },
+        {
+          product: "507f1f77bcf86cd799439014",
+          quantity: 5
+        }
+      ],
+      save: vi.fn().mockResolvedValue(true)
+    };
+
+    vi.spyOn(Order, "findById").mockResolvedValue(order);
+    vi.spyOn(Product, "findByIdAndUpdate").mockResolvedValue(true);
+
+    const req = {
+      params: {
+        orderId: "507f1f77bcf86cd799439011"
+      },
+      body: {
+        status: "cancelled"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await updateOrderStatus(req, res, next);
+
+    expect(Product.findByIdAndUpdate).toHaveBeenCalledTimes(2);
+    expect(Product.findByIdAndUpdate).toHaveBeenNthCalledWith(
+      1,
+      "507f1f77bcf86cd799439013",
+      {
+        $inc: {
+          stock: 2
+        }
+      }
+    );
+    expect(Product.findByIdAndUpdate).toHaveBeenNthCalledWith(
+      2,
+      "507f1f77bcf86cd799439014",
+      {
+        $inc: {
+          stock: 5
+        }
+      }
+    );
+
+    expect(order.status).toBe("cancelled");
+    expect(order.save).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("does not restore stock for non-cancellation transitions", async () => {
+    const order = {
+      _id: "507f1f77bcf86cd799439011",
+      status: "confirmed",
+      items: [
+        {
+          product: "507f1f77bcf86cd799439013",
+          quantity: 2
+        }
+      ],
+      save: vi.fn().mockResolvedValue(true)
+    };
+
+    vi.spyOn(Order, "findById").mockResolvedValue(order);
+    vi.spyOn(Product, "findByIdAndUpdate");
+
+    const req = {
+      params: {
+        orderId: "507f1f77bcf86cd799439011"
+      },
+      body: {
+        status: "processing"
+      },
+      requestId: "test-request-id"
+    };
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn()
+    };
+
+    const next = vi.fn();
+
+    await updateOrderStatus(req, res, next);
+
+    expect(Product.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(order.status).toBe("processing");
+    expect(order.save).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(next).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import cancelOrder from "./cancel-order.controller.js";
 
 import {
   createOrderSchema,
+  getOrdersSchema,
   getOrderSchema,
   updateOrderStatusSchema,
   cancelOrderSchema
@@ -31,6 +32,7 @@ router.post(
 router.get(
   "/",
   authMiddleware,
+  validate(getOrdersSchema),
   getOrders
 );
 

@@ -46,26 +46,49 @@ async function cancelOrder(req, res, next) {
       );
     }
 
-    for (const item of order.items) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        {
-          $inc: {
-            stock: item.quantity
-          }
+    const updatedOrder = await Order.findOneAndUpdate(
+      {
+        _id: orderId,
+        user: req.user._id,
+        status: { $nin: ["delivered", "cancelled"] }
+      },
+      {
+        $set: {
+          status: "cancelled"
         }
+      },
+      {
+        new: true
+      }
+    );
+
+    if (!updatedOrder) {
+      throw new AppError(
+        "Order is already cancelled",
+        400,
+        [],
+        "ORDER_ALREADY_CANCELLED"
       );
     }
 
-    order.status = "cancelled";
-
-    await order.save();
+    if (Array.isArray(updatedOrder.items)) {
+      for (const item of updatedOrder.items) {
+        await Product.findByIdAndUpdate(
+          item.product,
+          {
+            $inc: {
+              stock: item.quantity
+            }
+          }
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
       message: "Order cancelled successfully",
       data: {
-        order
+        order: updatedOrder
       },
       requestId: req.requestId
     });

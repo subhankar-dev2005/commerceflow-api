@@ -80,70 +80,103 @@ async function createOrder(req, res, next) {
       subtotal += itemSubtotal;
     }
 
-    const shippingAddress = {
-      fullName: address.fullName,
-      phone: address.phone,
-      addressLine1: address.addressLine1,
-      addressLine2: address.addressLine2,
-      city: address.city,
-      state: address.state,
-      postalCode: address.postalCode,
-      country: address.country
-    };
+    const deductedItems = [];
 
-    const order = await Order.create({
-      user: req.user._id,
-      items: orderItems,
-      totalQuantity,
-      subtotal,
-      payment: {
-        provider: "razorpay",
-        status: "pending",
-        transactionId: ""
-      },
-      shippingAddress,
-      status: "pending"
-    });
-
-    for (const item of orderItems) {
-      const updatedProduct = await Product.findOneAndUpdate(
-        {
-          _id: item.product,
-          isActive: true,
-          stock: { $gte: item.quantity }
-        },
-        {
-          $inc: {
-            stock: -item.quantity
+    try {
+      for (const item of orderItems) {
+        const updatedProduct = await Product.findOneAndUpdate(
+          {
+            _id: item.product,
+            isActive: true,
+            stock: { $gte: item.quantity }
+          },
+          {
+            $inc: {
+              stock: -item.quantity
+            }
+          },
+          {
+            new: true
           }
-        },
-        {
-          new: true
-        }
-      );
-
-      if (!updatedProduct) {
-        throw new AppError(
-          `Insufficient stock for ${item.name}`,
-          400,
-          [],
-          "INSUFFICIENT_STOCK"
         );
+
+        if (!updatedProduct) {
+          const productExists = await Product.findOne({
+            _id: item.product,
+            isActive: true
+          });
+
+          if (!productExists) {
+            throw new AppError(
+              "A product in the cart is no longer available",
+              404,
+              [],
+              "PRODUCT_NOT_FOUND"
+            );
+          }
+
+          throw new AppError(
+            `Insufficient stock for ${item.name}`,
+            400,
+            [],
+            "INSUFFICIENT_STOCK"
+          );
+        }
+
+        deductedItems.push(item);
       }
+
+      const shippingAddress = {
+        fullName: address.fullName,
+        phone: address.phone,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2,
+        city: address.city,
+        state: address.state,
+        postalCode: address.postalCode,
+        country: address.country
+      };
+
+      const order = await Order.create({
+        user: req.user._id,
+        items: orderItems,
+        totalQuantity,
+        subtotal,
+        payment: {
+          provider: "razorpay",
+          status: "pending",
+          transactionId: ""
+        },
+        shippingAddress,
+        status: "pending"
+      });
+
+      cart.items = [];
+
+      await cart.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Order created successfully",
+        data: {
+          order
+        },
+        requestId: req.requestId
+      });
+    } catch (error) {
+      if (deductedItems.length > 0) {
+        for (const item of deductedItems) {
+          try {
+            await Product.findByIdAndUpdate(item.product, {
+              $inc: { stock: item.quantity }
+            });
+          } catch {
+            // Do not override original error during rollback
+          }
+        }
+      }
+      throw error;
     }
-
-    cart.items = [];
-
-    await cart.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Order created successfully",
-      data: {
-        order
-      },
-      requestId: req.requestId
-    });
   } catch (error) {
     next(error);
   }

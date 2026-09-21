@@ -1,4 +1,5 @@
 import Order from "./order.model.js";
+import Product from "../products/product.model.js";
 
 import AppError from "../../common/errors/app-error.js";
 
@@ -36,6 +37,11 @@ async function updateOrderStatus(
         "cancelled"
       ],
 
+      confirmed: [
+        "processing",
+        "cancelled"
+      ],
+
       processing: [
         "shipped",
         "cancelled"
@@ -56,7 +62,7 @@ async function updateOrderStatus(
     const allowedStatuses =
       allowedTransitions[
         currentStatus
-      ];
+      ] || [];
 
     if (
       !allowedStatuses.includes(
@@ -69,6 +75,19 @@ async function updateOrderStatus(
         [],
         "INVALID_ORDER_STATUS_TRANSITION"
       );
+    }
+
+    if (status === "cancelled" && Array.isArray(order.items)) {
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.product,
+          {
+            $inc: {
+              stock: item.quantity
+            }
+          }
+        );
+      }
     }
 
     order.status =

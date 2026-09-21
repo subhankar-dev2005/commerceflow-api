@@ -202,6 +202,21 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
+orderSchema.index({
+  user: 1,
+  createdAt: -1
+});
+
+orderSchema.index({
+  user: 1,
+  status: 1,
+  createdAt: -1
+});
+
+orderSchema.index({
+  "payment.razorpayOrderId": 1
+});
+
 const Order = mongoose.model(
   "Order",
   orderSchema
