@@ -27,6 +27,24 @@ export function createApp() {
   app.disable("x-powered-by");
 
   /*
+   * Reverse proxy trust configuration.
+   * Never blindly trust all proxies (trust proxy = true).
+   * Safe default: false (standalone / direct connections).
+   * When behind a trusted proxy (e.g. Nginx, ALB): set to hop count (e.g. 1) or CIDR/loopback.
+   */
+  if (env.TRUST_PROXY === "false" || !env.TRUST_PROXY) {
+    app.set("trust proxy", false);
+  } else if (env.TRUST_PROXY === "true") {
+    app.set("trust proxy", 1);
+  } else {
+    const num = Number(env.TRUST_PROXY);
+    app.set(
+      "trust proxy",
+      Number.isInteger(num) && num > 0 ? num : env.TRUST_PROXY
+    );
+  }
+
+  /*
    * Structured HTTP logging.
    * Pino should run early so requests and responses are logged.
    */
@@ -61,15 +79,16 @@ export function createApp() {
   /*
    * Global API rate limiting.
    *
-   * Authentication routes will later receive stricter,
-   * separate rate limits.
+   * Webhook and authentication routes receive separate,
+   * dedicated rate limits.
    */
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
       limit: 100,
       standardHeaders: "draft-7",
-      legacyHeaders: false
+      legacyHeaders: false,
+      skip: (req) => req.originalUrl.startsWith("/api/v1/payments/webhook")
     })
   );
 

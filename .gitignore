@@ -79,3 +79,8 @@ uploads/
 # =========================
 *.env.backup
 *.env.bak
+
+# =========================
+# Local test files
+# =========================
+razorpay-test.html

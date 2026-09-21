@@ -8,9 +8,21 @@ import {
   disconnectMongoDB
 } from "./database/mongodb.js";
 
+import { createProcessHandlers } from "./common/process-handlers.js";
+
 const app = createApp();
 
 let server;
+
+const processHandlers = createProcessHandlers({
+  getServer: () => server,
+  disconnectDb: disconnectMongoDB,
+  loggerInstance: logger,
+  exitProcess: (code) => process.exit(code),
+  timeoutMs: 10000
+});
+
+processHandlers.register(process);
 
 async function startServer() {
   try {
@@ -36,69 +48,5 @@ async function startServer() {
     process.exit(1);
   }
 }
-
-async function shutdown(signal) {
-  logger.info(
-    { signal },
-    "Graceful shutdown started"
-  );
-
-  if (server) {
-    await new Promise(
-      (resolve, reject) => {
-        server.close(
-          (error) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-
-            resolve();
-          }
-        );
-      }
-    );
-  }
-
-  await disconnectMongoDB();
-
-  logger.info(
-    "Application shutdown completed"
-  );
-
-  process.exit(0);
-}
-
-process.on(
-  "SIGTERM",
-  () => {
-    shutdown("SIGTERM").catch(
-      (error) => {
-        logger.error(
-          { error },
-          "Shutdown failed"
-        );
-
-        process.exit(1);
-      }
-    );
-  }
-);
-
-process.on(
-  "SIGINT",
-  () => {
-    shutdown("SIGINT").catch(
-      (error) => {
-        logger.error(
-          { error },
-          "Shutdown failed"
-        );
-
-        process.exit(1);
-      }
-    );
-  }
-);
 
 startServer();

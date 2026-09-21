@@ -53,7 +53,17 @@ RAZORPAY_WEBHOOK_SECRET: z
   MONGODB_URI: z
 
     .string()
-    .min(1, "MONGODB_URI is required")
+    .min(1, "MONGODB_URI is required"),
+
+  TRUST_PROXY: z
+    .string()
+    .default("false"),
+
+  WEBHOOK_RATE_LIMIT: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(60)
 });
 
 const parsedEnvironment =
