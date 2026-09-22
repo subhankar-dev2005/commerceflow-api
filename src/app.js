@@ -104,15 +104,16 @@ export function createApp({ corsOrigin = env.CORS_ORIGIN } = {}) {
    * large JSON payloads.
    */
   app.use(
-  express.json({
-    limit: "1mb",
-    verify: (req, res, buf) => {
-      if (req.originalUrl === "/api/v1/payments/webhook") {
-        req.rawBody = buf;
+    express.json({
+      limit: "1mb",
+      verify: (req, res, buf) => {
+        const path = (req.originalUrl || "").split("?")[0].replace(/\/+$/, "");
+        if (path === "/api/v1/payments/webhook") {
+          req.rawBody = buf;
+        }
       }
-    }
-  })
-);
+    })
+  );
 
   /*
    * API routes.

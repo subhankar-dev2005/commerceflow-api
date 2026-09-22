@@ -13,6 +13,8 @@ import WebhookEvent from "./webhook-event.model.js";
 
 import handleRazorpayWebhook from "./webhook.controller.js";
 import { env } from "../../config/env.js";
+import request from "supertest";
+import { createApp } from "../../app.js";
 
 const TEST_WEBHOOK_SECRET =
   env.RAZORPAY_WEBHOOK_SECRET || "test_webhook_secret";
@@ -755,5 +757,91 @@ describe("handleRazorpayWebhook", () => {
     } finally {
       env.RAZORPAY_WEBHOOK_SECRET = originalSecret;
     }
+  });
+});
+
+describe("POST /api/v1/payments/webhook (raw-body URL matching integration)", () => {
+  let app;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+
+    vi.spyOn(WebhookEvent, "create").mockResolvedValue({
+      eventId: "evt_test123",
+      provider: "razorpay",
+      event: "order.paid"
+    });
+
+    app = createApp();
+  });
+
+  const payload = {
+    id: "evt_test123",
+    event: "order.paid",
+    payload: {}
+  };
+  const payloadString = JSON.stringify(payload);
+  const validSignature = crypto
+    .createHmac("sha256", TEST_WEBHOOK_SECRET)
+    .update(Buffer.from(payloadString))
+    .digest("hex");
+
+  it("captures raw body for canonical webhook path (/api/v1/payments/webhook)", async () => {
+    const response = await request(app)
+      .post("/api/v1/payments/webhook")
+      .set("x-razorpay-signature", validSignature)
+      .set("Content-Type", "application/json")
+      .send(payloadString);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Webhook processed successfully");
+  });
+
+  it("captures raw body for trailing-slash variant (/api/v1/payments/webhook/)", async () => {
+    const response = await request(app)
+      .post("/api/v1/payments/webhook/")
+      .set("x-razorpay-signature", validSignature)
+      .set("Content-Type", "application/json")
+      .send(payloadString);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Webhook processed successfully");
+  });
+
+  it("captures raw body for query-string variant (/api/v1/payments/webhook?source=razorpay)", async () => {
+    const response = await request(app)
+      .post("/api/v1/payments/webhook?source=razorpay")
+      .set("x-razorpay-signature", validSignature)
+      .set("Content-Type", "application/json")
+      .send(payloadString);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Webhook processed successfully");
+  });
+
+  it("captures raw body for trailing-slash and query-string variant (/api/v1/payments/webhook/?source=razorpay)", async () => {
+    const response = await request(app)
+      .post("/api/v1/payments/webhook/?source=razorpay")
+      .set("x-razorpay-signature", validSignature)
+      .set("Content-Type", "application/json")
+      .send(payloadString);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Webhook processed successfully");
+  });
+
+  it("does not capture raw body on unrelated routes", async () => {
+    const response = await request(app)
+      .post("/api/v1/payments/webhook/unrelated")
+      .set("x-razorpay-signature", validSignature)
+      .set("Content-Type", "application/json")
+      .send(payloadString);
+
+    expect(response.status).toBe(404);
+    expect(response.body.error?.code).toBe("ROUTE_NOT_FOUND");
   });
 });
