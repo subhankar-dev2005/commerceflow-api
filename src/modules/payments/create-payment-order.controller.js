@@ -47,7 +47,7 @@ async function createPaymentOrder(req, res, next) {
           razorpayOrderId: order.payment.razorpayOrderId,
           amount: Math.round(order.subtotal * 100),
           currency: "INR",
-          keyId: process.env.RAZORPAY_KEY_ID
+          keyId: env.RAZORPAY_KEY_ID
         },
         requestId: req.requestId
       });
@@ -70,7 +70,7 @@ async function createPaymentOrder(req, res, next) {
         razorpayOrderId: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        keyId: process.env.RAZORPAY_KEY_ID
+        keyId: env.RAZORPAY_KEY_ID
       },
       requestId: req.requestId
     });
