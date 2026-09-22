@@ -2,6 +2,9 @@
   "name": "commerceflow-api",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "description": "Production-grade eCommerce platform API",
   "main": "src/server.js",
   "type": "module",

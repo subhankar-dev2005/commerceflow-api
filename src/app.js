@@ -93,7 +93,14 @@ export function createApp({ corsOrigin = env.CORS_ORIGIN } = {}) {
       limit: 100,
       standardHeaders: "draft-7",
       legacyHeaders: false,
-      skip: (req) => req.originalUrl.startsWith("/api/v1/payments/webhook")
+      skip: (req) => {
+        const path = (req.originalUrl || "").split("?")[0].replace(/\/+$/, "");
+        return (
+          req.originalUrl.startsWith("/api/v1/payments/webhook") ||
+          path === "/api/v1/health" ||
+          path.startsWith("/api/v1/health/")
+        );
+      }
     })
   );
 

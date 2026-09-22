@@ -65,4 +65,78 @@ describe("Health Routes", () => {
       expect(response.body.data?.status).toBe("not_ready");
     });
   });
+
+  describe("Global API rate limiter exemption", () => {
+    it("does not count health endpoint requests toward the global rate limiter limit", async () => {
+      const healthRes = await request(app).get("/api/v1/health/");
+      expect(healthRes.status).toBe(200);
+      expect(healthRes.headers["ratelimit"]).toBeUndefined();
+
+      for (let i = 0; i < 5; i += 1) {
+        await request(app).get("/api/v1/health/live");
+      }
+
+      const nonHealthRes = await request(app)
+        .post("/api/v1/users/register")
+        .send({});
+
+      expect(nonHealthRes.headers["ratelimit"]).toBeDefined();
+      expect(nonHealthRes.headers["ratelimit"]).toContain("limit=100");
+      expect(nonHealthRes.headers["ratelimit"]).toContain("remaining=99");
+    });
+
+    it("does not return 429 when repeated requests are made to health endpoints", async () => {
+      const count = 105;
+      const promises = Array.from({ length: count }).map(() =>
+        request(app).get("/api/v1/health/live")
+      );
+
+      const responses = await Promise.all(promises);
+
+      for (const res of responses) {
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      }
+    });
+
+    it("ensures /api/v1/health/live remains accessible", async () => {
+      const response = await request(app).get("/api/v1/health/live");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data?.status).toBe("alive");
+    });
+
+    it("ensures /api/v1/health/ready remains accessible", async () => {
+      vi.spyOn(mongodb, "getMongoDBStatus").mockReturnValue({
+        status: "connected",
+        readyState: 1
+      });
+
+      const response = await request(app).get("/api/v1/health/ready");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data?.status).toBe("ready");
+    });
+
+    it("ensures ordinary non-health API endpoints remain subject to the global rate limiter", async () => {
+      const response = await request(app)
+        .post("/api/v1/users/register")
+        .send({});
+
+      expect(response.headers["ratelimit"]).toBeDefined();
+      expect(response.headers["ratelimit"]).toContain("limit=100");
+    });
+
+    it("ensures the existing webhook exemption continues to work independently", async () => {
+      const response = await request(app)
+        .post("/api/v1/payments/webhook")
+        .send({});
+
+      expect(response.headers["ratelimit"]).toBeDefined();
+      expect(response.headers["ratelimit"]).toContain("limit=60");
+      expect(response.headers["ratelimit"]).not.toContain("limit=100");
+    });
+  });
 });
